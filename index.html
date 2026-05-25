@@ -1,0 +1,1119 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>厦门美食地图 🍛 - 鹭岛足迹与人间烟火</title>
+  
+  <!-- Tailwind CSS & Inter Font CDN -->
+  <script src="https://cdn.tailwindcss.com"></script>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
+  
+  <!-- FontAwesome 图标支持 -->
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+
+  <style>
+    body {
+      font-family: 'Inter', -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+    }
+    /* 美化自定义滚动条 */
+    .custom-scrollbar::-webkit-scrollbar {
+      width: 5px;
+    }
+    .custom-scrollbar::-webkit-scrollbar-track {
+      background: transparent;
+    }
+    .custom-scrollbar::-webkit-scrollbar-thumb {
+      background-color: #e2e8f0;
+      border-radius: 20px;
+    }
+    .custom-scrollbar::-webkit-scrollbar-thumb:hover {
+      background-color: #cbd5e1;
+    }
+    /* 高德地图联想搜索下拉面板美化 */
+    .amap-sug-result {
+      border-radius: 14px !important;
+      border: 1px solid rgba(226, 232, 240, 0.8) !important;
+      backdrop-filter: blur(8px);
+      background-color: rgba(255, 255, 255, 0.95) !important;
+      box-shadow: 0 10px 25px -5px rgba(0, 0, 0, 0.05), 0 8px 10px -6px rgba(0, 0, 0, 0.05) !important;
+      overflow: hidden;
+      font-family: inherit;
+      z-index: 9999 !important;
+    }
+    .amap-sug-result .auto-item {
+      padding: 10px 14px !important;
+      font-size: 13px !important;
+      color: #334155 !important;
+    }
+    .amap-sug-result .auto-item:hover {
+      background-color: #f8fafc !important;
+      color: #f43f5e !important;
+    }
+  </style>
+
+  <!-- 高德地图安全密钥与配置 -->
+  <script>
+    window._AMapSecurityConfig = {
+      securityJsCode: '1c2364a1320351f5eda28d6db3cb7915'
+    };
+  </script>
+  <!-- 引入高德地图 JavaScript API v2.0 及 联想输入插件 -->
+  <script src="https://webapi.amap.com/maps?v=2.0&key=7f5664d227ecf2f3fdb336485c9b581f&plugin=AMap.AutoComplete"></script>
+</head>
+<body class="flex h-screen w-screen overflow-hidden text-slate-800 bg-slate-50 relative select-none">
+
+  <!-- 左侧控制面板外层容器 (支持平滑折叠) -->
+  <div id="sidebar-container" class="relative flex h-full flex-shrink-0 transition-all duration-300 ease-in-out w-[400px]">
+    
+    <aside class="w-full h-full flex flex-col bg-white border-r border-slate-100 shadow-2xl overflow-hidden relative">
+      
+      <!-- 顶部大标题与打卡统计 -->
+      <div class="p-6 bg-white border-b border-slate-100">
+        <div class="flex items-center justify-between">
+          <div>
+            <h1 class="text-2xl font-black tracking-tight text-slate-900 flex items-center gap-2">
+              厦门美食地图 <span class="text-xl">🍛</span>
+            </h1>
+            <p class="text-[11px] text-slate-400 font-medium tracking-wide mt-1">跟着足迹，丈量鹭岛的人间烟火气</p>
+          </div>
+          
+          <!-- 打卡计数徽章 -->
+          <div class="bg-slate-50 border border-slate-100 text-slate-800 px-3.5 py-1.5 rounded-2xl text-center shadow-sm">
+            <div id="stat-count" class="text-base font-extrabold leading-none">0</div>
+            <div class="text-[9px] text-slate-400 font-bold mt-0.5">已打卡</div>
+          </div>
+        </div>
+      </div>
+
+      <!-- 新增：足迹地图开关面板 (初始关闭) -->
+      <div class="px-6 py-3.5 bg-slate-50/50 border-b border-slate-100 flex items-center justify-between">
+        <div class="flex items-center gap-2">
+          <span class="w-2.5 h-2.5 rounded-full bg-rose-500 animate-pulse"></span>
+          <span class="text-xs font-bold text-slate-600 tracking-wide">在地图上显示我的足迹</span>
+        </div>
+        <!-- iOS 极简风格开关 -->
+        <label class="relative inline-flex items-center cursor-pointer">
+          <input type="checkbox" id="footprint-toggle" class="sr-only peer">
+          <div class="w-11 h-6 bg-slate-200 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-slate-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-rose-500"></div>
+        </label>
+      </div>
+
+      <!-- 核心 Tab 切换 -->
+      <div class="px-6 py-3 bg-white border-b border-slate-100 flex space-x-2">
+        <button id="tab-add-btn" class="flex-1 py-2 px-4 rounded-xl font-bold text-xs transition-all duration-300 flex items-center justify-center gap-2 bg-slate-900 text-white shadow-lg">
+          <i class="fa-solid fa-plus text-[10px]"></i>
+          添加打卡
+        </button>
+        <button id="tab-list-btn" class="flex-1 py-2 px-4 rounded-xl font-bold text-xs transition-all duration-300 flex items-center justify-center gap-2 text-slate-400 hover:text-slate-800 hover:bg-slate-50">
+          <i class="fa-solid fa-map-location-dot text-[10px]"></i>
+          我的足迹
+        </button>
+      </div>
+
+      <!-- 中间内容滚动区 -->
+      <div class="flex-1 overflow-y-auto px-6 py-5 custom-scrollbar bg-white">
+        
+        <!-- TAB 1: 添加打卡表单 -->
+        <form id="food-form" class="space-y-5">
+          
+          <!-- 店铺名称（AutoComplete） -->
+          <div>
+            <label class="block text-[10px] font-extrabold uppercase tracking-widest text-slate-400 mb-2">
+              店铺名称（高德地址联想）
+            </label>
+            <div class="relative">
+              <div class="absolute inset-y-0 left-3 flex items-center pointer-events-none text-slate-400">
+                <i class="fa-solid fa-magnifying-glass text-xs"></i>
+              </div>
+              <input
+                id="tipinput"
+                type="text"
+                required
+                placeholder="输入店名自动搜寻匹配..."
+                class="w-full pl-9 pr-4 py-2.5 bg-slate-50/70 border border-slate-100 rounded-xl focus:bg-white focus:ring-2 focus:ring-rose-500/20 focus:border-rose-500 transition-all text-xs shadow-inner outline-none font-medium"
+              />
+            </div>
+            
+            <!-- 新增：右键定位坐标锁定提示 -->
+            <div id="coords-lock-indicator" class="hidden mt-2 flex items-center gap-2 text-[10px] text-rose-500 font-bold bg-rose-50/80 px-3 py-1.5 rounded-xl border border-rose-100 animate-fadeIn">
+              <i class="fa-solid fa-location-dot animate-bounce"></i>
+              <span>已锁定地图选点经纬度</span>
+              <button type="button" id="clear-lock-btn" class="ml-auto text-slate-400 hover:text-rose-500 transition-colors" title="清除锁定">
+                <i class="fa-solid fa-circle-xmark"></i>
+              </button>
+            </div>
+          </div>
+
+          <!-- 推荐类型 -->
+          <div>
+            <label class="block text-[10px] font-extrabold uppercase tracking-widest text-slate-400 mb-2">
+              足迹类型
+            </label>
+            <div class="grid grid-cols-2 gap-3">
+              <button
+                type="button"
+                id="type-personal-btn"
+                class="py-2.5 px-3 rounded-xl border text-xs font-bold flex items-center justify-center gap-1.5 transition-all border-rose-500 bg-rose-50/60 text-rose-600 shadow-sm font-black"
+              >
+                <span class="text-rose-500 text-[10px]">❤️</span> 个人打卡
+              </button>
+              <button
+                type="button"
+                id="type-recommend-btn"
+                class="py-2.5 px-3 rounded-xl border text-xs font-bold flex items-center justify-center gap-1.5 transition-all border-slate-100 bg-slate-50/50 text-slate-500 hover:bg-slate-100"
+              >
+                <span class="text-blue-500 text-[10px]">⭐</span> 主题推荐
+              </button>
+            </div>
+          </div>
+
+          <!-- 评分系统 -->
+          <div>
+            <div class="flex justify-between items-center mb-1.5">
+              <label class="text-[10px] font-extrabold uppercase tracking-widest text-slate-400">
+                美味评级
+              </label>
+              <span id="rating-text" class="text-xs font-bold text-amber-500">
+                5 星级特推
+              </span>
+            </div>
+            <div class="flex space-x-1.5 bg-slate-50/50 p-2.5 rounded-xl border border-slate-100 justify-center" id="star-container">
+              <!-- 动态生成 5 星 -->
+              <button type="button" data-star="1" class="star-btn p-0.5 transition-transform transform hover:scale-125 focus:outline-none text-amber-400"><i class="fa-solid fa-star text-2xl"></i></button>
+              <button type="button" data-star="2" class="star-btn p-0.5 transition-transform transform hover:scale-125 focus:outline-none text-amber-400"><i class="fa-solid fa-star text-2xl"></i></button>
+              <button type="button" data-star="3" class="star-btn p-0.5 transition-transform transform hover:scale-125 focus:outline-none text-amber-400"><i class="fa-solid fa-star text-2xl"></i></button>
+              <button type="button" data-star="4" class="star-btn p-0.5 transition-transform transform hover:scale-125 focus:outline-none text-amber-400"><i class="fa-solid fa-star text-2xl"></i></button>
+              <button type="button" data-star="5" class="star-btn p-0.5 transition-transform transform hover:scale-125 focus:outline-none text-amber-400"><i class="fa-solid fa-star text-2xl"></i></button>
+            </div>
+          </div>
+
+          <!-- 人均价格 -->
+          <div>
+            <label class="block text-[10px] font-extrabold uppercase tracking-widest text-slate-400 mb-2">
+              人均价格 (元)
+            </label>
+            <div class="relative">
+              <div class="absolute inset-y-0 left-3 flex items-center pointer-events-none text-slate-400 font-bold text-xs">
+                ¥
+              </div>
+              <input
+                type="number"
+                id="price-input"
+                min="1"
+                placeholder="请输入约合人均费用"
+                class="w-full pl-8 pr-4 py-2.5 bg-slate-50/70 border border-slate-100 rounded-xl focus:bg-white focus:ring-2 focus:ring-rose-500/20 focus:border-rose-500 transition-all text-xs shadow-inner outline-none font-medium"
+              />
+            </div>
+          </div>
+
+          <!-- 评论 -->
+          <div>
+            <div class="flex justify-between items-center mb-2">
+              <label class="text-[10px] font-extrabold uppercase tracking-widest text-slate-400">
+                美食评语
+              </label>
+              <span id="char-count" class="text-[9px] text-slate-400">
+                0/200
+              </span>
+            </div>
+            <textarea
+              id="comment-input"
+              maxlength="200"
+              placeholder="描述你的探店体验，避坑指南，或者必点特色菜肴..."
+              rows="3"
+              class="w-full p-3 bg-slate-50/70 border border-slate-100 rounded-xl focus:bg-white focus:ring-2 focus:ring-rose-500/20 focus:border-rose-500 transition-all text-xs shadow-inner resize-none outline-none font-medium"
+            ></textarea>
+          </div>
+
+          <!-- 现场图片上传 -->
+          <div>
+            <label class="block text-[10px] font-extrabold uppercase tracking-widest text-slate-400 mb-2">
+              现场美食照片上传
+            </label>
+            <div id="dropzone" class="border-2 border-dashed border-slate-100 bg-slate-50/30 hover:bg-slate-50/70 transition-colors rounded-2xl p-4 text-center cursor-pointer relative group">
+              <input
+                type="file"
+                id="file-input"
+                accept="image/*"
+                class="absolute inset-0 w-full h-full opacity-0 cursor-pointer"
+              />
+              <div id="dropzone-default">
+                <i class="fa-solid fa-cloud-arrow-up text-2xl text-slate-300 group-hover:text-rose-500 transition-colors mb-2"></i>
+                <p class="text-xs font-bold text-slate-500">点击上传或将照片拖拽至此</p>
+                <p class="text-[9px] text-slate-400 mt-1 font-medium">智能 Canvas 零卡顿无损极小压缩至 300KB 内</p>
+              </div>
+              <div id="dropzone-preview" class="hidden relative">
+                <img id="preview-img" class="h-32 w-full object-cover rounded-xl shadow-md" src="" alt="预览图" />
+                <div class="absolute inset-0 bg-slate-900/40 rounded-xl flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity">
+                  <span class="text-white text-xs font-bold bg-black/50 px-3 py-1.5 rounded-full">更换照片</span>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <!-- 提交按钮 -->
+          <button
+            type="submit"
+            class="w-full py-3 bg-gradient-to-r from-rose-500 to-rose-600 hover:from-rose-600 hover:to-rose-700 active:scale-[0.98] text-white font-extrabold rounded-xl transition-all shadow-md flex items-center justify-center gap-2 text-xs"
+          >
+            <i class="fa-solid fa-utensils"></i>
+            记录这一顿 🍲
+          </button>
+
+        </form>
+
+        <!-- TAB 2: 我的足迹卡片流 (默认隐藏) -->
+        <div id="footprints-section" class="space-y-4 hidden">
+          
+          <!-- 过滤器 -->
+          <div class="flex bg-slate-50 p-1 rounded-xl border border-slate-100 text-[10px] font-extrabold">
+            <button id="filter-all" class="flex-1 py-1.5 px-2 rounded-lg transition-all bg-white text-slate-800 shadow-sm">
+              全部 (<span id="filter-all-count">0</span>)
+            </button>
+            <button id="filter-personal" class="flex-1 py-1.5 px-2 rounded-lg transition-all text-slate-400 hover:text-rose-500">
+              个人打卡 (<span id="filter-personal-count">0</span>)
+            </button>
+            <button id="filter-recommend" class="flex-1 py-1.5 px-2 rounded-lg transition-all text-slate-400 hover:text-blue-500">
+              推荐特色 (<span id="filter-recommend-count">0</span>)
+            </button>
+          </div>
+
+          <!-- 列表容器 -->
+          <div id="list-container" class="space-y-4"></div>
+
+          <!-- 空白页提示 -->
+          <div id="empty-state" class="text-center py-12 px-4 bg-white rounded-2xl border border-slate-100 hidden">
+            <span class="text-3xl block mb-2">🍜</span>
+            <div class="text-xs font-bold text-slate-500">尚无匹配的鹭岛印记</div>
+            <p class="text-[10px] text-slate-400 mt-1">切换到“添加打卡”板块，随时保存你的美味记忆！</p>
+          </div>
+        </div>
+
+      </div>
+
+      <!-- 侧边底栏说明 -->
+      <footer class="p-4 bg-white border-t border-slate-100 text-center text-[9px] text-slate-300 font-bold tracking-widest">
+        XIAMEN FOOD TRAIL • EPHEMERAL TRAIL
+      </footer>
+
+    </aside>
+
+    <!-- 折叠左侧栏的极简优雅半弧按钮 (自适应跟随) -->
+    <button
+      id="sidebar-toggle-btn"
+      class="absolute top-6 -right-3 w-6 h-12 bg-white border border-slate-100 shadow-lg rounded-r-xl rounded-l-none flex items-center justify-center cursor-pointer hover:bg-slate-50 transition-all z-50 text-slate-400 hover:text-rose-500"
+      title="折叠/展开控制台"
+    >
+      <i id="toggle-icon" class="fa-solid fa-chevron-left text-[10px] transition-transform duration-300"></i>
+    </button>
+  </div>
+
+  <!-- 右侧地图区域 -->
+  <main class="flex-1 h-full relative z-10">
+    
+    <!-- 高德地图挂载容器 -->
+    <div id="map-container" class="w-full h-full bg-slate-50"></div>
+
+    <!-- 自定义精致的地图右键菜单气泡 -->
+    <div id="custom-context-menu" class="hidden absolute bg-white/95 backdrop-blur-md shadow-2xl rounded-2xl py-1.5 px-1.5 border border-slate-100/50 z-[9999] w-48 transition-all duration-200 scale-95 opacity-0 pointer-events-auto">
+      <button id="context-create-btn" class="w-full text-left px-3 py-2 text-xs font-extrabold text-slate-700 hover:bg-rose-50 hover:text-rose-600 rounded-xl flex items-center gap-2.5 transition-all">
+        <i class="fa-solid fa-circle-plus text-rose-500 text-sm"></i>
+        在此处新建打卡点
+      </button>
+    </div>
+
+    <!-- 吐司弹层提示 -->
+    <div id="toast" class="absolute top-6 left-1/2 transform -translate-x-1/2 z-[9999] pointer-events-none opacity-0 transition-all duration-300 transform translate-y-[-10px]">
+      <div id="toast-content" class="px-4 py-2.5 rounded-xl shadow-2xl flex items-center space-x-2 border text-[11px] font-bold">
+        <span id="toast-icon"></span>
+        <span id="toast-text"></span>
+      </div>
+    </div>
+
+    <!-- 厦门一键重置视觉对焦按钮 -->
+    <button
+      id="reset-view-btn"
+      class="absolute bottom-8 right-8 z-30 bg-white/90 backdrop-blur-md text-slate-700 hover:text-rose-500 py-3 px-4 rounded-2xl shadow-2xl border border-slate-100 flex items-center gap-2 font-black text-xs transition-all active:scale-95 group hover:shadow-rose-100"
+      title="将视角平滑拉回厦门全景中心"
+    >
+      <i class="fa-solid fa-location-crosshairs text-rose-500 group-hover:rotate-12 transition-transform duration-300"></i>
+      重置厦门对焦
+    </button>
+
+  </main>
+
+  <script>
+    // ==========================================
+    // 1. 全局状态定义与 LocalStorage
+    // ==========================================
+    let activeTab = 'add'; // 'add' | 'list'
+    let currentType = 'personal'; // 'personal' | 'recommend'
+    let currentRating = 5;
+    let imageBase64 = '';
+    let selectedPoi = null; // 存储当前锁定的经纬度及POI名称信息
+    let filterType = 'all'; // 'all' | 'personal' | 'recommend'
+    let checkins = [];
+    let footprintsEnabled = false; // "我的足迹" 开关，初始状态为关闭
+
+    // 侧边栏折叠状态
+    let isSidebarCollapsed = false;
+
+    // 地图相关实例
+    let map = null;
+    let infoWindow = null;
+    let markers = [];
+    let tempMarker = null; // 右键产生的待编辑临时 Marker
+
+    const LOCAL_STORAGE_KEY = 'xiamen_food_map_checkins';
+    
+    // 初始化种子预置数据
+    const mockData = [
+      {
+        id: '1',
+        name: '阿杰五香面 (八市店)',
+        type: 'recommend',
+        rating: 5,
+        price: 25,
+        comment: '外皮金黄酥脆，肉馅鲜嫩多汁，配上特色辣酱真的绝了！来厦门必吃！',
+        image: 'https://images.unsplash.com/photo-1563245372-f21724e3856d?auto=format&fit=crop&w=400&q=80',
+        lnglat: [118.08012, 24.46115],
+        date: '2026-05-18'
+      },
+      {
+        id: '2',
+        name: '八市地道沙茶面',
+        type: 'personal',
+        rating: 4,
+        price: 35,
+        comment: '沙茶汤底极其浓郁，花生酱香浓厚，加料大肠和鲜虾分量很足。',
+        image: 'https://images.unsplash.com/photo-1552611052-33e04de081de?auto=format&fit=crop&w=400&q=80',
+        lnglat: [118.09345, 24.47890],
+        date: '2026-05-20'
+      }
+    ];
+
+    // ==========================================
+    // 2. 界面 Toast 模块
+    // ==========================================
+    function showToast(message, type = 'success') {
+      const toast = document.getElementById('toast');
+      const content = document.getElementById('toast-content');
+      const icon = document.getElementById('toast-icon');
+      const text = document.getElementById('toast-text');
+
+      text.textContent = message;
+      if (type === 'success') {
+        content.className = "px-4 py-2.5 rounded-xl shadow-2xl flex items-center space-x-2 border text-[11px] font-bold bg-white border-emerald-100 text-emerald-600 shadow-emerald-50";
+        icon.innerHTML = '<i class="fa-solid fa-circle-check text-emerald-500"></i>';
+      } else {
+        content.className = "px-4 py-2.5 rounded-xl shadow-2xl flex items-center space-x-2 border text-[11px] font-bold bg-white border-rose-100 text-rose-600 shadow-rose-50";
+        icon.innerHTML = '<i class="fa-solid fa-circle-xmark text-rose-500"></i>';
+      }
+
+      toast.classList.remove('opacity-0', 'translate-y-[-10px]');
+      toast.classList.add('opacity-100', 'translate-y-0');
+
+      setTimeout(() => {
+        toast.classList.remove('opacity-100', 'translate-y-0');
+        toast.classList.add('opacity-0', 'translate-y-[-10px]');
+      }, 3000);
+    }
+
+    // ==========================================
+    // 3. 数据层控制
+    // ==========================================
+    function loadCheckins() {
+      const stored = localStorage.getItem(LOCAL_STORAGE_KEY);
+      if (stored) {
+        try {
+          checkins = JSON.parse(stored);
+        } catch (e) {
+          checkins = [...mockData];
+        }
+      } else {
+        checkins = [...mockData];
+        saveCheckins();
+      }
+      updateStats();
+      renderList();
+    }
+
+    function saveCheckins() {
+      localStorage.setItem(LOCAL_STORAGE_KEY, JSON.stringify(checkins));
+      updateStats();
+    }
+
+    function updateStats() {
+      document.getElementById('stat-count').textContent = checkins.length;
+      document.getElementById('filter-all-count').textContent = checkins.length;
+      document.getElementById('filter-personal-count').textContent = checkins.filter(c => c.type === 'personal').length;
+      document.getElementById('filter-recommend-count').textContent = checkins.filter(c => c.type === 'recommend').length;
+    }
+
+    // ==========================================
+    // 4. 高德地图核心初始化 (含右键选点绑定)
+    // ==========================================
+    function initMap() {
+      try {
+        map = new window.AMap.Map('map-container', {
+          center: [118.11022, 24.49047], // 厦门中心
+          zoom: 13,
+          viewMode: '3D',
+          pitch: 35
+        });
+
+        infoWindow = new window.AMap.InfoWindow({
+          offset: new window.AMap.Pixel(0, -30)
+        });
+
+        // 绑定搜索联想插件
+        const auto = new window.AMap.AutoComplete({
+          input: 'tipinput',
+          city: '厦门',
+          citylimit: true
+        });
+
+        auto.on('select', (e) => {
+          if (e.poi && e.poi.location) {
+            selectedPoi = {
+              name: e.poi.name,
+              lnglat: [e.poi.location.lng, e.poi.location.lat]
+            };
+            document.getElementById('tipinput').value = e.poi.name;
+            updateCoordsIndicator(true, e.poi.name, selectedPoi.lnglat);
+            showToast(`已成功选定位置: ${e.poi.name}`);
+          }
+        });
+
+        // 监听地图右键事件 (PRD 新增)
+        map.on('rightclick', (e) => {
+          showContextMenu(e);
+        });
+
+        // 点击地图其他地方或移动地图，自动隐退右键气泡
+        map.on('click', hideContextMenu);
+        map.on('movestart', hideContextMenu);
+
+        // 首次加载渲染
+        updateMarkers();
+
+      } catch (err) {
+        console.error("加载高德地图实例失败:", err);
+        showToast("地图初始化失败，请检查网络和安全密钥配置", "error");
+      }
+    }
+
+    // ==========================================
+    // 5. 新增：右键菜单悬浮气泡逻辑
+    // ==========================================
+    let lastRightClickLngLat = null;
+
+    function showContextMenu(e) {
+      lastRightClickLngLat = e.lnglat;
+      const contextMenu = document.getElementById('custom-context-menu');
+      
+      // 计算其在地图容器内的相对定位像素值
+      const pixel = map.lngLatToContainer(e.lnglat);
+      
+      contextMenu.style.left = `${pixel.x + 10}px`;
+      contextMenu.style.top = `${pixel.y + 10}px`;
+      
+      contextMenu.classList.remove('hidden');
+      // 触发动画优雅放大显现
+      setTimeout(() => {
+        contextMenu.classList.remove('scale-95', 'opacity-0');
+        contextMenu.classList.add('scale-100', 'opacity-100');
+      }, 50);
+    }
+
+    function hideContextMenu() {
+      const contextMenu = document.getElementById('custom-context-menu');
+      contextMenu.classList.remove('scale-100', 'opacity-100');
+      contextMenu.classList.add('scale-95', 'opacity-0');
+      setTimeout(() => {
+        contextMenu.classList.add('hidden');
+      }, 200);
+    }
+
+    // 右键气泡点击处理 -> 触发全屏联动
+    document.getElementById('context-create-btn').addEventListener('click', () => {
+      if (!lastRightClickLngLat) return;
+      
+      // 1. 如果左侧折叠状态，强行拉开展开
+      if (isSidebarCollapsed) {
+        toggleSidebar();
+      }
+
+      // 2. 转换到 "添加打卡" 选项卡
+      switchTab('add');
+
+      // 3. 在该位置建立一个临时正在编辑的呼吸 Marker (Draft)
+      createTempMarker(lastRightClickLngLat);
+
+      // 4. 锁定本次打卡的目标坐标，弹出徽章提示
+      selectedPoi = {
+        name: "地图标注点",
+        lnglat: [lastRightClickLngLat.getLng(), lastRightClickLngLat.getLat()]
+      };
+      
+      document.getElementById('tipinput').value = "地图右键选定位置";
+      updateCoordsIndicator(true, "右键精确坐标", selectedPoi.lnglat);
+
+      hideContextMenu();
+      showToast("位置已锁定，请在左侧表单补充店名和美味详情！");
+    });
+
+    // 创建临时的编辑点标志
+    function createTempMarker(lnglat) {
+      if (tempMarker) {
+        tempMarker.setMap(null);
+      }
+
+      const tempContent = document.createElement('div');
+      tempContent.className = 'relative flex items-center justify-center';
+      tempContent.innerHTML = `
+        <div class="absolute w-12 h-12 rounded-full bg-rose-500/20 border-2 border-rose-500 animate-ping"></div>
+        <div class="w-6 h-6 rounded-full bg-rose-500 border-2 border-white shadow-xl flex items-center justify-center text-[10px] text-white font-extrabold z-10">
+          📍
+        </div>
+        <div class="absolute -top-10 bg-rose-600 text-white text-[10px] font-extrabold py-1 px-2.5 rounded-lg whitespace-nowrap shadow-md">
+          正在编辑该点
+        </div>
+      `;
+
+      tempMarker = new window.AMap.Marker({
+        position: lnglat,
+        content: tempContent,
+        offset: new window.AMap.Pixel(-12, -12)
+      });
+
+      tempMarker.setMap(map);
+      map.panTo(lnglat);
+    }
+
+    function clearTempMarker() {
+      if (tempMarker) {
+        tempMarker.setMap(null);
+        tempMarker = null;
+      }
+    }
+
+    // ==========================================
+    // 6. 新增/删除锁定提示徽章
+    // ==========================================
+    function updateCoordsIndicator(show, name, lnglat) {
+      const indicator = document.getElementById('coords-lock-indicator');
+      if (show) {
+        indicator.classList.remove('hidden');
+        document.getElementById('locked-coords-text').textContent = `${lnglat[0].toFixed(5)}, ${lnglat[1].toFixed(5)}`;
+      } else {
+        indicator.classList.add('hidden');
+      }
+    }
+
+    document.getElementById('clear-lock-btn').addEventListener('click', () => {
+      selectedPoi = null;
+      document.getElementById('tipinput').value = '';
+      updateCoordsIndicator(false);
+      clearTempMarker();
+      showToast("已清除坐标锁定，将采用默认推荐搜索。");
+    });
+
+    // ==========================================
+    // 7. 更新地图已保存足迹标记点 (受 Toggle 限制)
+    // ==========================================
+    function updateMarkers() {
+      if (!map) return;
+
+      // 清除历史
+      markers.forEach(m => m.setMap(null));
+      markers = [];
+
+      // 若开关关闭，直接清空返回，从而隐藏所有足迹 (PRD 核心逻辑)
+      if (!footprintsEnabled) {
+        return;
+      }
+
+      const filtered = checkins.filter(item => {
+        if (filterType === 'all') return true;
+        return item.type === filterType;
+      });
+
+      filtered.forEach(item => {
+        if (!item.lnglat || item.lnglat.length !== 2) return;
+
+        const colorClass = item.type === 'personal' ? 'bg-rose-500 animate-bounceOnce' : 'bg-blue-500';
+        const iconText = item.type === 'personal' ? '❤️' : '⭐';
+
+        const markerContent = document.createElement('div');
+        markerContent.className = 'relative group cursor-pointer transition-transform duration-300 hover:scale-125';
+        markerContent.innerHTML = `
+          <div class="absolute -top-12 left-1/2 transform -translate-x-1/2 bg-slate-900 text-white text-[10px] px-2.5 py-1.5 rounded-xl shadow-xl opacity-0 group-hover:opacity-100 transition-opacity duration-200 pointer-events-none whitespace-nowrap z-50 font-bold">
+            ${item.name}
+          </div>
+          <div class="w-9 h-9 flex items-center justify-center rounded-full border-2 border-white shadow-lg ${colorClass} text-white text-xs">
+            ${iconText}
+          </div>
+          <div class="w-2.5 h-2.5 mx-auto rounded-full bg-slate-800 border-2 border-white -mt-1 shadow"></div>
+        `;
+
+        const marker = new window.AMap.Marker({
+          position: item.lnglat,
+          content: markerContent,
+          title: item.name,
+          offset: new window.AMap.Pixel(-18, -36)
+        });
+
+        marker.on('click', () => {
+          openFoodInfoWindow(item);
+        });
+
+        marker.setMap(map);
+        markers.push(marker);
+      });
+    }
+
+    // ==========================================
+    // 8. 精准特色气泡 InfoWindow 展示
+    // ==========================================
+    function openFoodInfoWindow(item) {
+      if (!map || !infoWindow) return;
+
+      const starsHtml = '★'.repeat(item.rating) + '☆'.repeat(5 - item.rating);
+      const badgeText = item.type === 'personal' ? '个人足迹' : '特色推荐';
+      const badgeColor = item.type === 'personal' ? 'bg-rose-50 text-rose-600 border border-rose-100' : 'bg-blue-50 text-blue-600 border border-blue-100';
+
+      const contentString = `
+        <div class="p-4 max-w-sm rounded-2xl bg-white border border-slate-100 shadow-2xl font-sans" style="min-width: 270px;">
+          ${item.image ? `<img src="${item.image}" class="w-full h-32 object-cover rounded-xl mb-3 shadow-inner" style="max-height: 120px;" onerror="this.src='https://images.unsplash.com/photo-1563245372-f21724e3856d?auto=format&fit=crop&w=400&q=80'"/>` : ''}
+          <div class="flex justify-between items-start mb-2 gap-2">
+            <h3 class="text-sm font-black text-slate-900 leading-tight">${item.name}</h3>
+            <span class="px-2 py-0.5 text-[9px] font-extrabold rounded-lg ${badgeColor} whitespace-nowrap">
+              ${badgeText}
+            </span>
+          </div>
+          <div class="flex items-center space-x-1.5 mb-2.5 text-xs">
+            <span class="text-amber-500 font-bold">${starsHtml}</span>
+            <span class="text-slate-300">•</span>
+            <span class="text-slate-600 font-extrabold text-[11px]">人均 ¥${item.price}</span>
+          </div>
+          <p class="text-[11px] text-slate-500 leading-relaxed italic bg-slate-50/50 p-2.5 rounded-xl border border-slate-100 mb-2.5">
+            "${item.comment || '无具体评价'}"
+          </p>
+          <div class="text-[9px] text-slate-300 text-right font-bold tracking-wider">${item.date}</div>
+        </div>
+      `;
+
+      infoWindow.setContent(contentString);
+      infoWindow.open(map, item.lnglat);
+      map.panTo(item.lnglat);
+    }
+
+    // ==========================================
+    // 9. “足迹列表卡片”聚焦交互 (含动态开关连开)
+    // ==========================================
+    function focusOnSpot(item) {
+      if (!map) return;
+
+      // 强力交互特色：如果当前“足迹显示开关”是关着的，一键替用户打卡开启！
+      if (!footprintsEnabled) {
+        footprintsEnabled = true;
+        document.getElementById('footprint-toggle').checked = true;
+        updateMarkers();
+        showToast("已自动开启地图足迹显示", "success");
+      }
+
+      map.setZoomAndCenter(15, item.lnglat);
+      setTimeout(() => {
+        openFoodInfoWindow(item);
+      }, 400);
+    }
+
+    // ==========================================
+    // 10. “我的足迹” Toggle 开关事件联动
+    // ==========================================
+    document.getElementById('footprint-toggle').addEventListener('change', (e) => {
+      footprintsEnabled = e.target.checked;
+      updateMarkers();
+      
+      if (footprintsEnabled) {
+        showToast("足迹图层已激活，正在展示历史美食坐标");
+      } else {
+        showToast("足迹图层已隐退，地图回归纯净视角");
+        if (infoWindow) infoWindow.close();
+      }
+    });
+
+    // ==========================================
+    // 11. 折叠侧边栏交互 logic
+    // ==========================================
+    const sidebarContainer = document.getElementById('sidebar-container');
+    const toggleBtn = document.getElementById('sidebar-toggle-btn');
+    const toggleIcon = document.getElementById('toggle-icon');
+
+    function toggleSidebar() {
+      isSidebarCollapsed = !isSidebarCollapsed;
+      if (isSidebarCollapsed) {
+        // 折叠侧边栏
+        sidebarContainer.style.width = '0px';
+        toggleIcon.className = "fa-solid fa-chevron-right text-[10px] transition-transform duration-300";
+        showToast("控制台已折叠，大屏沉浸体验");
+      } else {
+        // 展开侧边栏
+        sidebarContainer.style.width = '400px';
+        toggleIcon.className = "fa-solid fa-chevron-left text-[10px] transition-transform duration-300";
+      }
+      
+      // 延迟让地图自适应新的容器宽高，防止拉伸变形
+      setTimeout(() => {
+        if (map) map.resize();
+      }, 310);
+    }
+
+    toggleBtn.addEventListener('click', toggleSidebar);
+
+    // ==========================================
+    // 12. 智能 Canvas 无损大片轻量级压缩
+    // ==========================================
+    function handleImageCompression(file) {
+      const reader = new FileReader();
+      reader.onload = (event) => {
+        const img = new Image();
+        img.onload = () => {
+          const canvas = document.createElement('canvas');
+          const MAX_WIDTH = 800;
+          const MAX_HEIGHT = 800;
+          let width = img.width;
+          let height = img.height;
+
+          if (width > height) {
+            if (width > MAX_WIDTH) {
+              height *= MAX_WIDTH / width;
+              width = MAX_WIDTH;
+            }
+          } else {
+            if (height > MAX_HEIGHT) {
+              width *= MAX_HEIGHT / height;
+              height = MAX_HEIGHT;
+            }
+          }
+
+          canvas.width = width;
+          canvas.height = height;
+          const ctx = canvas.getContext('2d');
+          ctx.drawImage(img, 0, 0, width, height);
+
+          // 转换轻量 Base64 格式
+          imageBase64 = canvas.toDataURL('image/jpeg', 0.7);
+
+          // 预览图展现
+          document.getElementById('dropzone-default').classList.add('hidden');
+          const preview = document.getElementById('dropzone-preview');
+          preview.classList.remove('hidden');
+          document.getElementById('preview-img').src = imageBase64;
+
+          showToast("美食现场照智能无损压缩完毕！");
+        };
+        img.src = event.target.result;
+      };
+      reader.readAsDataURL(file);
+    }
+
+    // ==========================================
+    // 13. 表单递交與数据持久化保存
+    // ==========================================
+    document.getElementById('food-form').addEventListener('submit', (e) => {
+      e.preventDefault();
+
+      const shopName = document.getElementById('tipinput').value.trim();
+      const price = Number(document.getElementById('price-input').value) || 0;
+      const comment = document.getElementById('comment-input').value.trim();
+
+      if (!shopName) {
+        showToast("请输入店铺名称", "error");
+        return;
+      }
+
+      let finalLngLat = [118.11022, 24.49047]; // 默认厦门中心
+
+      // 如果有锁定的（右键选定或联想推荐），直接采用，否则自动微调位置
+      if (selectedPoi) {
+        finalLngLat = selectedPoi.lnglat;
+      } else {
+        if (map) {
+          const center = map.getCenter();
+          finalLngLat = [
+            center.lng + (Math.random() - 0.5) * 0.04,
+            center.lat + (Math.random() - 0.5) * 0.04
+          ];
+        }
+      }
+
+      const newCheckin = {
+        id: Date.now().toString(),
+        name: shopName,
+        type: currentType,
+        rating: currentRating,
+        price,
+        comment,
+        image: imageBase64,
+        lnglat: finalLngLat,
+        date: new Date().toISOString().split('T')[0]
+      };
+
+      // 头部插入
+      checkins.unshift(newCheckin);
+      saveCheckins();
+
+      showToast(`已成功录入美味记忆: ${shopName}!`);
+
+      // 重置表单元素
+      document.getElementById('food-form').reset();
+      imageBase64 = '';
+      selectedPoi = null;
+      currentRating = 5;
+      updateStars();
+      updateCoordsIndicator(false);
+
+      // 复原上传图
+      document.getElementById('dropzone-default').classList.remove('hidden');
+      document.getElementById('dropzone-preview').classList.add('hidden');
+      document.getElementById('preview-img').src = '';
+      document.getElementById('char-count').textContent = '0/200';
+
+      // 清理地图上正在编辑的临时临时 Marker
+      clearTempMarker();
+
+      // 核心体验提升：自动为用户拨开开关，以便让他们瞬间看到打卡点！
+      if (!footprintsEnabled) {
+        footprintsEnabled = true;
+        document.getElementById('footprint-toggle').checked = true;
+      }
+
+      // 切换视图到我的足迹，自动刷新
+      switchTab('list');
+      updateMarkers();
+    });
+
+    // ==========================================
+    // 14. 足迹点注销删除
+    // ==========================================
+    function deleteCheckin(id, e) {
+      e.stopPropagation(); // 阻拦上浮对焦
+      checkins = checkins.filter(item => item.id !== id);
+      saveCheckins();
+      renderList();
+      updateMarkers();
+      if (infoWindow) infoWindow.close();
+      showToast("该美味足迹已告别清理", "success");
+    }
+
+    function renderList() {
+      const container = document.getElementById('list-container');
+      const emptyState = document.getElementById('empty-state');
+      container.innerHTML = '';
+
+      const filtered = checkins.filter(item => {
+        if (filterType === 'all') return true;
+        return item.type === filterType;
+      });
+
+      if (filtered.length === 0) {
+        emptyState.classList.remove('hidden');
+        return;
+      } else {
+        emptyState.classList.add('hidden');
+      }
+
+      filtered.forEach(item => {
+        const starsHtml = '★'.repeat(item.rating) + '☆'.repeat(5 - item.rating);
+        const card = document.createElement('div');
+        card.className = "bg-white border border-slate-100 hover:border-rose-100 hover:shadow-2xl rounded-2xl p-4 transition-all duration-300 cursor-pointer relative group flex flex-col gap-3.5 transform hover:-translate-y-0.5";
+        card.onclick = () => focusOnSpot(item);
+
+        card.innerHTML = `
+          ${item.image ? `
+            <div class="relative w-full h-32 rounded-xl overflow-hidden shadow-inner bg-slate-50">
+              <img src="${item.image}" alt="${item.name}" class="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500" onerror="this.src='https://images.unsplash.com/photo-1563245372-f21724e3856d?auto=format&fit=crop&w=400&q=80'"/>
+              <span class="absolute top-2 left-2 px-2 py-0.5 text-[9px] font-extrabold rounded-lg text-white shadow-md ${item.type === 'personal' ? 'bg-rose-500' : 'bg-blue-500'}">
+                ${item.type === 'personal' ? '个人' : '推荐'}
+              </span>
+            </div>
+          ` : ''}
+
+          <div>
+            <div class="flex justify-between items-start gap-2">
+              <div class="flex items-center gap-1.5">
+                ${!item.image ? `<span class="text-sm">${item.type === 'personal' ? '❤️' : '⭐'}</span>` : ''}
+                <h3 class="font-black text-xs text-slate-800 tracking-tight group-hover:text-rose-500 transition-colors">
+                  ${item.name}
+                </h3>
+              </div>
+              
+              <button
+                onclick="deleteCheckin('${item.id}', event)"
+                class="text-slate-300 hover:text-rose-500 hover:bg-rose-50 p-1.5 rounded-lg transition-colors"
+                title="删除此足迹"
+              >
+                <i class="fa-solid fa-trash-can text-[10px]"></i>
+              </button>
+            </div>
+
+            <div class="flex items-center space-x-2 mt-1.5 text-xs text-slate-400 font-bold">
+              <div class="text-amber-400 font-extrabold">${starsHtml}</div>
+              <span>•</span>
+              <span class="text-[11px] text-slate-500">人均 ¥${item.price}</span>
+            </div>
+
+            ${item.comment ? `
+              <p class="text-[11px] text-slate-500 mt-2 line-clamp-2 leading-relaxed bg-slate-50/50 p-2.5 rounded-xl border border-slate-100">
+                ${item.comment}
+              </p>
+            ` : ''}
+
+            <div class="text-[9px] text-slate-300 mt-3 text-right font-bold">
+              记录于 ${item.date}
+            </div>
+          </div>
+        `;
+        container.appendChild(card);
+      });
+    }
+
+    // ==========================================
+    // 15. 控制台面板切换交互
+    // ==========================================
+    function switchTab(tab) {
+      activeTab = tab;
+      const form = document.getElementById('food-form');
+      const list = document.getElementById('footprints-section');
+      const addBtn = document.getElementById('tab-add-btn');
+      const listBtn = document.getElementById('tab-list-btn');
+
+      if (tab === 'add') {
+        form.classList.remove('hidden');
+        list.classList.add('hidden');
+        addBtn.className = "flex-1 py-2 px-4 rounded-xl font-bold text-xs transition-all duration-300 flex items-center justify-center gap-2 bg-slate-900 text-white shadow-lg";
+        listBtn.className = "flex-1 py-2 px-4 rounded-xl font-bold text-xs transition-all duration-300 flex items-center justify-center gap-2 text-slate-400 hover:text-slate-800 hover:bg-slate-50";
+      } else {
+        form.classList.add('hidden');
+        list.classList.remove('hidden');
+        listBtn.className = "flex-1 py-2 px-4 rounded-xl font-bold text-xs transition-all duration-300 flex items-center justify-center gap-2 bg-slate-900 text-white shadow-lg";
+        addBtn.className = "flex-1 py-2 px-4 rounded-xl font-bold text-xs transition-all duration-300 flex items-center justify-center gap-2 text-slate-400 hover:text-slate-800 hover:bg-slate-50";
+        renderList();
+      }
+    }
+
+    document.getElementById('tab-add-btn').addEventListener('click', () => switchTab('add'));
+    document.getElementById('tab-list-btn').addEventListener('click', () => switchTab('list'));
+
+    // 卡片列表内子过滤器交互
+    const subFilters = ['all', 'personal', 'recommend'];
+    subFilters.forEach(type => {
+      document.getElementById(`filter-${type}`).addEventListener('click', () => {
+        filterType = type;
+        subFilters.forEach(t => {
+          const btn = document.getElementById(`filter-${t}`);
+          if (t === type) {
+            btn.className = `flex-1 py-1.5 px-2 rounded-lg transition-all bg-white shadow-sm font-extrabold ${t === 'personal' ? 'text-rose-500' : t === 'recommend' ? 'text-blue-500' : 'text-slate-800'}`;
+          } else {
+            btn.className = `flex-1 py-1.5 px-2 rounded-lg transition-all text-slate-400 hover:text-slate-600 font-bold`;
+          }
+        });
+        renderList();
+        updateMarkers();
+      });
+    });
+
+    // ==========================================
+    // 16. 美食评分组件控制
+    // ==========================================
+    function updateStars() {
+      const stars = document.querySelectorAll('.star-btn');
+      const text = document.getElementById('rating-text');
+      text.textContent = `${currentRating} 星级特推`;
+      
+      stars.forEach(btn => {
+        const starVal = Number(btn.getAttribute('data-star'));
+        if (starVal <= currentRating) {
+          btn.className = "star-btn p-0.5 transition-transform transform hover:scale-125 focus:outline-none text-amber-400";
+        } else {
+          btn.className = "star-btn p-0.5 transition-transform transform hover:scale-125 focus:outline-none text-slate-200";
+        }
+      });
+    }
+
+    document.querySelectorAll('.star-btn').forEach(btn => {
+      btn.addEventListener('click', () => {
+        currentRating = Number(btn.getAttribute('data-star'));
+        updateStars();
+      });
+    });
+
+    // ==========================================
+    // 17. 选项卡片绑定
+    // ==========================================
+    const pBtn = document.getElementById('type-personal-btn');
+    const rBtn = document.getElementById('type-recommend-btn');
+
+    pBtn.addEventListener('click', () => {
+      currentType = 'personal';
+      pBtn.className = "py-2.5 px-3 rounded-xl border text-xs font-bold flex items-center justify-center gap-1.5 transition-all border-rose-500 bg-rose-50/60 text-rose-600 shadow-sm font-black";
+      rBtn.className = "py-2.5 px-3 rounded-xl border text-xs font-bold flex items-center justify-center gap-1.5 transition-all border-slate-100 bg-slate-50/50 text-slate-500 hover:bg-slate-100";
+    });
+
+    rBtn.addEventListener('click', () => {
+      currentType = 'recommend';
+      rBtn.className = "py-2.5 px-3 rounded-xl border text-xs font-bold flex items-center justify-center gap-1.5 transition-all border-blue-500 bg-blue-50/60 text-blue-600 shadow-sm font-black";
+      pBtn.className = "py-2.5 px-3 rounded-xl border text-xs font-bold flex items-center justify-center gap-1.5 transition-all border-slate-100 bg-slate-50/50 text-slate-500 hover:bg-slate-100";
+    });
+
+    // ==========================================
+    // 18. 文件输入、字符限额与地图重置绑定
+    // ==========================================
+    document.getElementById('comment-input').addEventListener('input', (e) => {
+      document.getElementById('char-count').textContent = `${e.target.value.length}/200`;
+    });
+
+    const fileInput = document.getElementById('file-input');
+    const dropzone = document.getElementById('dropzone');
+
+    fileInput.addEventListener('change', (e) => {
+      if (e.target.files.length) handleImageCompression(e.target.files[0]);
+    });
+
+    dropzone.addEventListener('dragover', (e) => {
+      e.preventDefault();
+      dropzone.classList.add('border-rose-400', 'bg-rose-50/10');
+    });
+
+    dropzone.addEventListener('dragleave', () => {
+      dropzone.classList.remove('border-rose-400', 'bg-rose-50/10');
+    });
+
+    dropzone.addEventListener('drop', (e) => {
+      e.preventDefault();
+      dropzone.classList.remove('border-rose-400', 'bg-rose-50/10');
+      if (e.dataTransfer.files.length) {
+        handleImageCompression(e.dataTransfer.files[0]);
+      }
+    });
+
+    document.getElementById('reset-view-btn').addEventListener('click', () => {
+      if (map) {
+        map.setZoomAndCenter(13, [118.11022, 24.49047]);
+        showToast("厦门全景视角已被还原");
+      }
+    });
+
+    // ==========================================
+    // 19. 系统一键初始化
+    // ==========================================
+    window.onload = function() {
+      loadCheckins();
+      initMap();
+    };
+  </script>
+</body>
+</html>
